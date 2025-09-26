@@ -1,0 +1,97 @@
+stateDiagram
+    [*] --> START : Program starts
+
+    START --> PARSE_ARGS : Read command line arguments
+    
+    PARSE_ARGS --> VALIDATE_URL : Args provided
+    PARSE_ARGS --> ERROR_NO_ARGS : No arguments
+    
+    VALIDATE_URL --> EXTRACT_COMPONENTS : Valid URL format
+    VALIDATE_URL --> ERROR_INVALID_URL : Invalid URL format
+    
+    EXTRACT_COMPONENTS --> CHECK_PROXY : Extract hostname, port, path
+    
+    CHECK_PROXY --> CONNECT_PROXY : Proxy configured
+    CHECK_PROXY --> CONNECT_SERVER : No proxy
+    
+    CONNECT_SERVER --> SEND_REQUEST : TCP connection established
+    CONNECT_SERVER --> ERROR_CONNECTION : Connection failed
+    
+    CONNECT_PROXY --> SEND_PROXY_REQUEST : TCP connection to proxy established
+    CONNECT_PROXY --> ERROR_CONNECTION : Proxy connection failed
+    
+    SEND_REQUEST --> WAIT_RESPONSE : HTTP GET request sent
+    SEND_REQUEST --> ERROR_SEND : Send failed
+    
+    SEND_PROXY_REQUEST --> WAIT_RESPONSE : HTTP GET request sent to proxy
+    SEND_PROXY_REQUEST --> ERROR_SEND : Send to proxy failed
+    
+    WAIT_RESPONSE --> PARSE_STATUS : Response received
+    WAIT_RESPONSE --> ERROR_TIMEOUT : No response (timeout)
+    WAIT_RESPONSE --> ERROR_RECEIVE : Receive error
+    
+    PARSE_STATUS --> HANDLE_200 : Status 200 OK
+    PARSE_STATUS --> HANDLE_301 : Status 301 Moved Permanently
+    PARSE_STATUS --> HANDLE_302 : Status 302 Moved Temporarily
+    PARSE_STATUS --> HANDLE_400 : Status 400 Bad Request
+    PARSE_STATUS --> HANDLE_404 : Status 404 Not Found
+    PARSE_STATUS --> HANDLE_OTHER : Other status codes
+    PARSE_STATUS --> ERROR_MALFORMED : Malformed response
+    
+    HANDLE_200 --> READ_HEADERS : Parse headers
+    HANDLE_301 --> READ_REDIRECT : Get Location header
+    HANDLE_302 --> READ_REDIRECT : Get Location header
+    HANDLE_400 --> DISPLAY_ERROR : Show client error
+    HANDLE_404 --> DISPLAY_ERROR : Show not found
+    HANDLE_OTHER --> DISPLAY_ERROR : Show status message
+    
+    READ_HEADERS --> READ_BODY : Content-Length > 0
+    READ_HEADERS --> SUCCESS : No body or Content-Length = 0
+    READ_HEADERS --> ERROR_HEADERS : Invalid headers
+    
+    READ_REDIRECT --> VALIDATE_REDIRECT : Check Location header
+    
+    VALIDATE_REDIRECT --> EXTRACT_COMPONENTS : Valid redirect URL (follow redirect)
+    VALIDATE_REDIRECT --> ERROR_REDIRECT : Invalid redirect URL
+    
+    READ_BODY --> SUCCESS : Body read successfully
+    READ_BODY --> ERROR_BODY : Error reading body
+    READ_BODY --> ERROR_TIMEOUT : Timeout reading body
+    
+    SUCCESS --> CLEANUP : Display result
+    DISPLAY_ERROR --> CLEANUP : Show error message
+    
+    CLEANUP --> END : Close connections, free resources
+    
+    ERROR_NO_ARGS --> END : Exit with error
+    ERROR_INVALID_URL --> END : Exit with error
+    ERROR_CONNECTION --> END : Exit with error
+    ERROR_SEND --> END : Exit with error
+    ERROR_TIMEOUT --> END : Exit with error
+    ERROR_RECEIVE --> END : Exit with error
+    ERROR_MALFORMED --> END : Exit with error
+    ERROR_HEADERS --> END : Exit with error
+    ERROR_REDIRECT --> END : Exit with error
+    ERROR_BODY --> END : Exit with error
+    
+    END --> [*] : Program terminates
+
+    note right of WAIT_RESPONSE
+        Implement timeout to avoid
+        getting stuck "until end of universe"
+    end note
+    
+    note right of VALIDATE_REDIRECT
+        Handle redirect loops
+        (max redirect count)
+    end note
+    
+    note right of CONNECT_PROXY
+        For proxy: connect to proxy server
+        instead of target server
+    end note
+    
+    note right of SEND_PROXY_REQUEST
+        For proxy: GET full_url HTTP/1.1
+        instead of GET path HTTP/1.1
+    end note
