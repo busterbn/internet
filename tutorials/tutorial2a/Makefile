@@ -1,5 +1,5 @@
 # A sample Makefile
-# This Makefile demonstrates and explains 
+# This Makefile demonstrates and explains
 # Make Macros, Macro Expansions,
 # Rules, Targets, Dependencies, Commands, Goals
 # Artificial Targets, Pattern Rule, Dependency Rule.
@@ -8,15 +8,16 @@
 
 # Here is a simple Make Macro.
 
-LINK_TARGET = pointer
+LINK_TARGET = 'http://www.google.com/'
 
 # Here is a Make Macro that uses the backslash to extend to multiple lines.
 # This allows quick modification of more object files.
 
 OBJS = \
-	pointer.o \
-	student.o
-	
+	test_url.o \
+	url.o
+
+
 # Here is a Make Macro defined by two Macro Expansions.
 # A Macro Expansion may be treated as a textual replacement of the Make Macro.
 # Macro Expansions are introduced with $ and enclosed in (parentheses).
@@ -26,7 +27,7 @@ REBUILDABLES = $(OBJS) $(LINK_TARGET)
 # There are two standard Targets your Makefile should probably have:
 # "all" and "clean", because they are often command-line Goals.
 # Also, these are both typically Artificial Targets, because they don't typically
-# correspond to real files named "all" or "clean".  
+# correspond to real files named "all" or "clean".
 
 # The rule for "all" is used to incrementally build your system.
 # It does this by expressing a dependency on the results of that system,
@@ -43,7 +44,7 @@ all : $(LINK_TARGET)
 # and two Commands (indented by tabs on the lines that follow).
 # The space before the colon is not required but added here for clarity.
 
-clean: 
+clean:
 	rm -f $(REBUILDABLES)
 
 # There is no required order to the list of rules as they appear in the Makefile.
@@ -55,7 +56,7 @@ clean:
 # $^ expands to the rule's dependencies, in this case the two files
 # url.o and wgetX.o
 $(LINK_TARGET) : $(OBJS)
-	cc -g -o $@ $^ 
+	cc -g -o $@ $^
 
 # Here is a Pattern Rule, often used for compile-line.
 # It says how to create a file with a .o suffix, given a file with a .c suffix.
@@ -65,7 +66,7 @@ $(LINK_TARGET) : $(OBJS)
 
 %.o : %.c
 	cc -g  -Wall -o $@ -c $<
-  
+
 # These are Dependency Rules, which are rules without any command.
 # Dependency Rules indicate that if any file to the right of the colon changes,
 # the target to the left of the colon should be considered out-of-date.
@@ -73,5 +74,5 @@ $(LINK_TARGET) : $(OBJS)
 # (in this case, by the Pattern Rule above).
 # Dependency Rules are often used to capture header file dependencies.
 
-pointer.o: student.h student.c
- 
+test_url.o: url.h url.c
+
