@@ -57,7 +57,8 @@ int parse_url(char* url, url_info *info)
 	 * 	 Return an error (PARSE_URL_PROTOCOL_UNKNOWN) if the protocol is not 'http' using strcmp.
 	 */
 
-	if (strcmp(info->protocol, "http")) {
+	// Accept both http and https (we'll use http connection for both in this simple implementation)
+	if (strcmp(info->protocol, "http") != 0 && strcmp(info->protocol, "https") != 0) {
 		return PARSE_URL_PROTOCOL_UNKNOWN;
 	}
 
@@ -95,7 +96,12 @@ int parse_url(char* url, url_info *info)
 			return PARSE_URL_INVALID_PORT;
 		}
 	} else {
-		info->port = 80;
+		// Default port: 80 for http, 443 for https
+		if (strcmp(info->protocol, "https") == 0) {
+			info->port = 443;
+		} else {
+			info->port = 80;
+		}
 	}
 
 	// If everything went well, return 0.

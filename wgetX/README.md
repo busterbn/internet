@@ -21,7 +21,7 @@ Downloads the content from the specified URL and saves it to a file named `recei
 ## Example
 
 ```bash
-./wgetx http://example.com
+./wgetx http://example.com/
 ```
 
 ## Cleaning
