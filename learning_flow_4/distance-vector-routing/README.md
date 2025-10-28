@@ -1,6 +1,8 @@
-# Distance Vector Routing Protocol - Part 1
+# Distance Vector Routing Protocol - Parts 1 & 2
 
-Implementation of neighbor detection for a Distance Vector Routing Protocol using UDP broadcast.
+Implementation of a Distance Vector Routing Protocol using UDP broadcast, including:
+- **Part 1**: Neighbor Detection
+- **Part 2**: Distance Table Data Structure & Updates
 
 ## Build
 
@@ -22,8 +24,10 @@ make clean && make
 The program will:
 - Automatically detect your IP address
 - Send HELLO messages every 5 seconds via UDP broadcast
-- Listen for HELLO messages from other routers
-- Display a neighbor table showing detected routers
+- Listen for HELLO and DV messages from other routers
+- Maintain a neighbor table showing detected routers
+- Maintain a distance table with routes to all known destinations
+- Process distance vectors and update routing information
 - Remove neighbors that haven't sent HELLO for >10 seconds
 
 ## Requirements
