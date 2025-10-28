@@ -610,6 +610,48 @@ void *message_receiver_thread(void *arg) {
     return NULL;
 }
 
+// Thread: Send Distance Vector when it changes
+void *dv_sender_thread(void *arg) {
+    struct sockaddr_in broadcast_addr;
+
+    memset(&broadcast_addr, 0, sizeof(broadcast_addr));
+    broadcast_addr.sin_family = AF_INET;
+    broadcast_addr.sin_port = htons(PORT);
+    broadcast_addr.sin_addr.s_addr = inet_addr(BROADCAST_ADDR);
+
+    printf("[INFO] DV sender thread started\n");
+
+    while (1) {
+        // Check if DV needs to be sent
+        if (dvNeedsSending()) {
+            // Get the current distance vector
+            char *dv = getDistanceVector();
+            int dv_len = strlen(dv);
+
+            if (dv_len > 0) {
+                // Send broadcast DV
+                int bytes_sent = sendto(sock_fd, dv, dv_len, 0,
+                                      (struct sockaddr *)&broadcast_addr,
+                                      sizeof(broadcast_addr));
+                if (bytes_sent < 0) {
+                    perror("DV sendto failed");
+                } else {
+                    printf("[SEND] Distance Vector broadcast (%d bytes)\n", bytes_sent);
+                    printf("  DV: %s\n", dv);
+                }
+
+                // Clear the update flag
+                dvSent();
+            }
+        }
+
+        // Sleep briefly to avoid busy-waiting
+        usleep(100000); // 100ms
+    }
+
+    return NULL;
+}
+
 // Create and configure UDP socket
 int create_broadcast_socket() {
     int sock;
@@ -668,9 +710,9 @@ int create_broadcast_socket() {
 }
 
 int main() {
-    pthread_t hello_thread, receiver_thread;
+    pthread_t hello_thread, receiver_thread, dv_thread;
 
-    printf("=== Distance Vector Routing Protocol - Part 2 ===\n\n");
+    printf("=== Distance Vector Routing Protocol - Parts 1, 2 & 3 ===\n\n");
 
     // Initialize my_ip_address buffer
     memset(my_ip_address, 0, INET_ADDRSTRLEN);
@@ -713,9 +755,16 @@ int main() {
         return 1;
     }
 
+    if (pthread_create(&dv_thread, NULL, dv_sender_thread, NULL) != 0) {
+        perror("Failed to create DV sender thread");
+        close(sock_fd);
+        return 1;
+    }
+
     // Wait for threads (they run indefinitely)
     pthread_join(hello_thread, NULL);
     pthread_join(receiver_thread, NULL);
+    pthread_join(dv_thread, NULL);
 
     close(sock_fd);
     return 0;

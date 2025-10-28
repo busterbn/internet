@@ -1,8 +1,9 @@
-# Distance Vector Routing Protocol - Parts 1 & 2
+# Distance Vector Routing Protocol - Parts 1, 2 & 3
 
-Implementation of a Distance Vector Routing Protocol using UDP broadcast, including:
+Complete implementation of a Distance Vector Routing Protocol using UDP broadcast:
 - **Part 1**: Neighbor Detection
 - **Part 2**: Distance Table Data Structure & Updates
+- **Part 3**: Integration - Automatic DV transmission and convergence
 
 ## Build
 
@@ -27,8 +28,10 @@ The program will:
 - Listen for HELLO and DV messages from other routers
 - Maintain a neighbor table showing detected routers
 - Maintain a distance table with routes to all known destinations
-- Process distance vectors and update routing information
+- Automatically broadcast distance vectors when routing information changes
+- Process distance vectors and update routing information using Bellman-Ford
 - Remove neighbors that haven't sent HELLO for >10 seconds
+- Converge to optimal routes through distributed algorithm
 
 ## Requirements
 
@@ -52,8 +55,25 @@ sudo ufw allow 5555/udp
 
 ## Implementation Details
 
-- **Neighbor Detection**: Routers announce presence every 5 seconds
+### Part 1: Neighbor Detection
+- **HELLO Messages**: Routers announce presence every 5 seconds
 - **Timeout**: Neighbors are removed after 10 seconds of inactivity
-- **Thread-Safe**: Uses mutex for neighbor table access
-- **Non-Blocking**: Separate threads for sending and receiving
-- **Self-Detection**: Ignores messages from itself
+- **Sequence Numbers**: Monotonically incrementing, detects fresh messages
+- **Self-Detection**: Messages from self are ignored
+
+### Part 2: Distance Table & Updates
+- **Data Structure**: Maintains distance to each destination via each neighbor
+- **Bellman-Ford**: distance = neighbor_distance + 1
+- **Change Detection**: Tracks when shortest path changes
+- **Integration**: Auto-updates when neighbors appear/disappear
+
+### Part 3: Integration & Convergence
+- **Automatic DV Broadcast**: Sends DV when routing information changes
+- **Event-Driven**: DV sent on neighbor detection, timeout, or DV receipt
+- **Distributed Convergence**: Network converges to optimal routes
+- **Triggered Updates**: Immediate broadcast when DV changes
+
+### General
+- **Thread-Safe**: Mutexes for neighbor and distance tables
+- **Non-Blocking**: 4 threads (HELLO sender, receiver, DV sender, main)
+- **Interoperable**: Follows assignment message format specifications
