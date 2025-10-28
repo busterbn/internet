@@ -1,9 +1,7 @@
+LINK_TARGET = main
 
-LINK_TARGET = wgetX
-
-OBJS = \
-	wgetX.o \
-	url.o
+SRCDIR = src
+OBJS = $(SRCDIR)/main.o
 
 REBUILDABLES = $(OBJS) $(LINK_TARGET)
 
@@ -13,9 +11,8 @@ clean:
 	rm -f $(REBUILDABLES)
 
 # Here is a Rule that uses some built-in Make Macros in its command:
-# $@ expands to the rule's target, in this case "wgetX".
-# $^ expands to the rule's dependencies, in this case the two files
-# url.o and wgetX.o
+# $@ expands to the rule's target, in this case "main".
+# $^ expands to the rule's dependencies, in this case the object files
 $(LINK_TARGET) : $(OBJS)
 	cc -g -o $@ $^ -lpthread
 
@@ -23,10 +20,10 @@ $(LINK_TARGET) : $(OBJS)
 # It says how to create a file with a .o suffix, given a file with a .c suffix.
 # The rule's command uses some built-in Make Macros:
 # $@ for the pattern-matched target
-# $lt; for the pattern-matched dependency
+# $< for the pattern-matched dependency
 
-%.o : %.c
-	cc -g  -Wall -o $@ -c $<
+$(SRCDIR)/%.o : $(SRCDIR)/%.c
+	cc -g -Wall -o $@ -c $<
 
 # These are Dependency Rules, which are rules without any command.
 # Dependency Rules indicate that if any file to the right of the colon changes,
@@ -35,5 +32,5 @@ $(LINK_TARGET) : $(OBJS)
 # (in this case, by the Pattern Rule above).
 # Dependency Rules are often used to capture header file dependencies.
 
-wgetX.o : wgetX.h url.h
-url.o : url.h
+# wgetX.o : wgetX.h url.h
+# url.o : url.h
