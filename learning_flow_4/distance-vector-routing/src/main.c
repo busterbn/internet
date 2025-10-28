@@ -41,6 +41,7 @@ int get_my_ip_address(char *ip_buffer) {
         return -1;
     }
 
+    printf("Available network interfaces:\n");
     // Look for first non-loopback IPv4 address
     for (ifa = ifaddr; ifa != NULL; ifa = ifa->ifa_next) {
         if (ifa->ifa_addr == NULL) continue;
@@ -48,18 +49,21 @@ int get_my_ip_address(char *ip_buffer) {
         if (ifa->ifa_addr->sa_family == AF_INET) {
             struct sockaddr_in *addr = (struct sockaddr_in *)ifa->ifa_addr;
             const char *ip = inet_ntoa(addr->sin_addr);
+            printf("  %s: %s\n", ifa->ifa_name, ip);
 
             // Skip loopback
-            if (strcmp(ip, "127.0.0.1") != 0) {
+            if (strcmp(ip, "127.0.0.1") != 0 && ip_buffer[0] == '\0') {
                 strncpy(ip_buffer, ip, INET_ADDRSTRLEN);
-                freeifaddrs(ifaddr);
-                return 0;
             }
         }
     }
 
     freeifaddrs(ifaddr);
-    return -1;
+
+    if (ip_buffer[0] == '\0') {
+        return -1;
+    }
+    return 0;
 }
 
 // Initialize neighbor table
@@ -171,12 +175,14 @@ void *hello_sender_thread(void *arg) {
         msg_len += sizeof(uint16_t);
 
         // Send broadcast HELLO
-        if (sendto(sock_fd, hello_msg, msg_len, 0,
-                   (struct sockaddr *)&broadcast_addr,
-                   sizeof(broadcast_addr)) < 0) {
+        int bytes_sent = sendto(sock_fd, hello_msg, msg_len, 0,
+                                (struct sockaddr *)&broadcast_addr,
+                                sizeof(broadcast_addr));
+        if (bytes_sent < 0) {
             perror("sendto failed");
         } else {
-            printf("[SEND] HELLO broadcast (seq: %u)\n", hello_sequence);
+            printf("[SEND] HELLO broadcast to %s:%d (seq: %u, %d bytes)\n",
+                   BROADCAST_ADDR, PORT, hello_sequence, bytes_sent);
         }
 
         hello_sequence++;
@@ -200,6 +206,8 @@ void *message_receiver_thread(void *arg) {
     struct sockaddr_in sender_addr;
     socklen_t addr_len = sizeof(sender_addr);
 
+    printf("[INFO] Receiver thread started, listening on port %d\n", PORT);
+
     while (1) {
         memset(buffer, 0, BUFFER_SIZE);
 
@@ -211,23 +219,39 @@ void *message_receiver_thread(void *arg) {
             continue;
         }
 
+        char *sender_ip_from_packet = inet_ntoa(sender_addr.sin_addr);
+        printf("[RECV] Got %d bytes from %s:%d\n",
+               recv_len, sender_ip_from_packet, ntohs(sender_addr.sin_port));
+
         // Parse message format: IPAddress:HELLO:sequenceNumber
         char sender_ip[INET_ADDRSTRLEN];
         char msg_type[16];
         uint16_t sequence;
 
+        // Make a copy for parsing (strtok modifies the buffer)
+        char parse_buffer[BUFFER_SIZE];
+        memcpy(parse_buffer, buffer, recv_len);
+        parse_buffer[recv_len] = '\0';
+
         // Extract IP and message type
-        char *token = strtok(buffer, ":");
-        if (token == NULL) continue;
+        char *token = strtok(parse_buffer, ":");
+        if (token == NULL) {
+            printf("[WARN] Invalid message format - no IP\n");
+            continue;
+        }
         strncpy(sender_ip, token, INET_ADDRSTRLEN);
 
         // Check if message is from ourselves
         if (strcmp(sender_ip, my_ip_address) == 0) {
-            continue; // Ignore messages from self
+            printf("[DEBUG] Ignoring message from self (%s)\n", sender_ip);
+            continue;
         }
 
         token = strtok(NULL, ":");
-        if (token == NULL) continue;
+        if (token == NULL) {
+            printf("[WARN] Invalid message format - no message type\n");
+            continue;
+        }
         strncpy(msg_type, token, sizeof(msg_type));
 
         // Process HELLO messages
@@ -240,7 +264,11 @@ void *message_receiver_thread(void *arg) {
 
                 printf("[RECV] HELLO from %s (seq: %u)\n", sender_ip, sequence);
                 update_neighbor(sender_ip, sequence);
+            } else {
+                printf("[WARN] Invalid HELLO message - no sequence number\n");
             }
+        } else {
+            printf("[WARN] Unknown message type: %s\n", msg_type);
         }
     }
 
@@ -298,13 +326,17 @@ int main() {
 
     printf("=== Distance Vector Routing Protocol - Part 1 ===\n\n");
 
+    // Initialize my_ip_address buffer
+    memset(my_ip_address, 0, INET_ADDRSTRLEN);
+
     // Get our IP address
     if (get_my_ip_address(my_ip_address) < 0) {
         fprintf(stderr, "Failed to get IP address\n");
         return 1;
     }
-    printf("My IP Address: %s\n", my_ip_address);
-    printf("Using UDP port: %d\n\n", PORT);
+    printf("\nSelected IP Address: %s\n", my_ip_address);
+    printf("Using UDP port: %d\n", PORT);
+    printf("Broadcasting to: %s\n\n", BROADCAST_ADDR);
 
     // Initialize neighbor table
     init_neighbor_table();
