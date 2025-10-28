@@ -670,7 +670,7 @@ int create_broadcast_socket() {
 int main() {
     pthread_t hello_thread, receiver_thread;
 
-    printf("=== Distance Vector Routing Protocol - Part 1 ===\n\n");
+    printf("=== Distance Vector Routing Protocol - Part 2 ===\n\n");
 
     // Initialize my_ip_address buffer
     memset(my_ip_address, 0, INET_ADDRSTRLEN);
