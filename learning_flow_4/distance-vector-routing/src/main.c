@@ -219,9 +219,9 @@ void *message_receiver_thread(void *arg) {
             continue;
         }
 
-        char *sender_ip_from_packet = inet_ntoa(sender_addr.sin_addr);
-        printf("[RECV] Got %d bytes from %s:%d\n",
-               recv_len, sender_ip_from_packet, ntohs(sender_addr.sin_port));
+        // char *sender_ip_from_packet = inet_ntoa(sender_addr.sin_addr);
+        // printf("[RECV] Got %d bytes from %s:%d\n",
+        //        recv_len, sender_ip_from_packet, ntohs(sender_addr.sin_port));
 
         // Parse message format: IPAddress:HELLO:sequenceNumber
         // Note: sequenceNumber is binary (2 bytes), not a string!
@@ -247,7 +247,7 @@ void *message_receiver_thread(void *arg) {
 
         // Check if message is from ourselves
         if (strcmp(sender_ip, my_ip_address) == 0) {
-            printf("[DEBUG] Ignoring message from self (%s)\n", sender_ip);
+            // printf("[DEBUG] Ignoring message from self (%s)\n", sender_ip);
             continue;
         }
 
