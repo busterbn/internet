@@ -224,22 +224,26 @@ void *message_receiver_thread(void *arg) {
                recv_len, sender_ip_from_packet, ntohs(sender_addr.sin_port));
 
         // Parse message format: IPAddress:HELLO:sequenceNumber
+        // Note: sequenceNumber is binary (2 bytes), not a string!
         char sender_ip[INET_ADDRSTRLEN];
         char msg_type[16];
         uint16_t sequence;
 
-        // Make a copy for parsing (strtok modifies the buffer)
-        char parse_buffer[BUFFER_SIZE];
-        memcpy(parse_buffer, buffer, recv_len);
-        parse_buffer[recv_len] = '\0';
-
-        // Extract IP and message type
-        char *token = strtok(parse_buffer, ":");
-        if (token == NULL) {
-            printf("[WARN] Invalid message format - no IP\n");
+        // Find the colons to parse the message
+        char *first_colon = strchr(buffer, ':');
+        if (first_colon == NULL) {
+            printf("[WARN] Invalid message format - no first colon\n");
             continue;
         }
-        strncpy(sender_ip, token, INET_ADDRSTRLEN);
+
+        // Extract sender IP
+        int ip_len = first_colon - buffer;
+        if (ip_len >= INET_ADDRSTRLEN) {
+            printf("[WARN] IP address too long\n");
+            continue;
+        }
+        strncpy(sender_ip, buffer, ip_len);
+        sender_ip[ip_len] = '\0';
 
         // Check if message is from ourselves
         if (strcmp(sender_ip, my_ip_address) == 0) {
@@ -247,25 +251,38 @@ void *message_receiver_thread(void *arg) {
             continue;
         }
 
-        token = strtok(NULL, ":");
-        if (token == NULL) {
-            printf("[WARN] Invalid message format - no message type\n");
+        // Find second colon
+        char *second_colon = strchr(first_colon + 1, ':');
+        if (second_colon == NULL) {
+            printf("[WARN] Invalid message format - no second colon\n");
             continue;
         }
-        strncpy(msg_type, token, sizeof(msg_type));
+
+        // Extract message type
+        int type_len = second_colon - (first_colon + 1);
+        if (type_len >= sizeof(msg_type)) {
+            printf("[WARN] Message type too long\n");
+            continue;
+        }
+        strncpy(msg_type, first_colon + 1, type_len);
+        msg_type[type_len] = '\0';
 
         // Process HELLO messages
         if (strcmp(msg_type, "HELLO") == 0) {
-            // Sequence number is in network byte order
-            char *seq_ptr = strtok(NULL, ":");
-            if (seq_ptr != NULL && strlen(seq_ptr) >= sizeof(uint16_t)) {
+            // Sequence number starts right after second colon
+            // It's binary data (2 bytes in network byte order)
+            char *seq_ptr = second_colon + 1;
+            int remaining = recv_len - (seq_ptr - buffer);
+
+            if (remaining >= sizeof(uint16_t)) {
                 memcpy(&sequence, seq_ptr, sizeof(uint16_t));
                 sequence = ntohs(sequence);
 
                 printf("[RECV] HELLO from %s (seq: %u)\n", sender_ip, sequence);
                 update_neighbor(sender_ip, sequence);
             } else {
-                printf("[WARN] Invalid HELLO message - no sequence number\n");
+                printf("[WARN] Invalid HELLO message - insufficient data for sequence number (got %d bytes, need %zu)\n",
+                       remaining, sizeof(uint16_t));
             }
         } else {
             printf("[WARN] Unknown message type: %s\n", msg_type);
