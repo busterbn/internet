@@ -404,6 +404,11 @@ void processDistanceVector(char* dv) {
             if (*ptr == ')') ptr++;
             if (*ptr == ':') ptr++;
 
+            // Don't learn routes to ourselves
+            if (strcmp(dest, my_ip_address) == 0) {
+                continue;
+            }
+
             // Update distance table: distance via sender is sender's distance + 1
             int new_distance = dist + 1;
             if (update_distance_table(dest, sender_ip, new_distance)) {
