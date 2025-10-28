@@ -57,6 +57,8 @@ void remove_neighbor_from_distance_table(const char *neighbor);
 void dvUpdate();
 void dvSent();
 int get_shortest_distance(const char *destination);
+void print_neighbor_table();
+void print_distance_table();
 
 // Get the primary IP address of this machine
 int get_my_ip_address(char *ip_buffer) {
@@ -108,6 +110,7 @@ void update_neighbor(const char *ip, uint16_t sequence) {
 
     time_t now = time(NULL);
     int found = 0;
+    int is_new = 0;
 
     // Check if neighbor already exists
     for (int i = 0; i < MAX_NEIGHBORS; i++) {
@@ -118,7 +121,6 @@ void update_neighbor(const char *ip, uint16_t sequence) {
             if (sequence > neighbor_table[i].last_sequence) {
                 neighbor_table[i].last_sequence = sequence;
                 neighbor_table[i].last_heard = now;
-                printf("[UPDATE] Neighbor %s updated (seq: %u)\n", ip, sequence);
             }
             found = 1;
             break;
@@ -133,6 +135,7 @@ void update_neighbor(const char *ip, uint16_t sequence) {
                 neighbor_table[i].last_sequence = sequence;
                 neighbor_table[i].last_heard = now;
                 neighbor_table[i].active = 1;
+                is_new = 1;
                 printf("[NEW] Neighbor detected: %s (seq: %u)\n", ip, sequence);
 
                 // Add neighbor to distance table with distance 1
@@ -146,6 +149,12 @@ void update_neighbor(const char *ip, uint16_t sequence) {
     }
 
     pthread_mutex_unlock(&neighbor_mutex);
+
+    // Print neighbor table only when a new neighbor is added
+    if (is_new) {
+        print_neighbor_table();
+        print_distance_table();
+    }
 }
 
 // Check for timed-out neighbors
@@ -153,6 +162,7 @@ void check_neighbor_timeouts() {
     pthread_mutex_lock(&neighbor_mutex);
 
     time_t now = time(NULL);
+    int any_timeout = 0;
 
     for (int i = 0; i < MAX_NEIGHBORS; i++) {
         if (neighbor_table[i].active) {
@@ -164,11 +174,18 @@ void check_neighbor_timeouts() {
                 dvUpdate();
 
                 neighbor_table[i].active = 0;
+                any_timeout = 1;
             }
         }
     }
 
     pthread_mutex_unlock(&neighbor_mutex);
+
+    // Print tables only when a neighbor times out
+    if (any_timeout) {
+        print_neighbor_table();
+        print_distance_table();
+    }
 }
 
 // Print current neighbor table
@@ -400,6 +417,7 @@ void processDistanceVector(char* dv) {
 
     if (changes) {
         dvUpdate();
+        print_distance_table();
     }
 }
 
@@ -476,21 +494,17 @@ void *hello_sender_thread(void *arg) {
                                 sizeof(broadcast_addr));
         if (bytes_sent < 0) {
             perror("sendto failed");
-        } else {
-            printf("[SEND] HELLO broadcast to %s:%d (seq: %u, %d bytes)\n",
-                   BROADCAST_ADDR, PORT, hello_sequence, bytes_sent);
         }
+        // Uncomment for verbose debugging:
+        // else {
+        //     printf("[SEND] HELLO broadcast to %s:%d (seq: %u, %d bytes)\n",
+        //            BROADCAST_ADDR, PORT, hello_sequence, bytes_sent);
+        // }
 
         hello_sequence++;
 
         // Check for neighbor timeouts
         check_neighbor_timeouts();
-
-        // Print neighbor table
-        print_neighbor_table();
-
-        // Print distance table
-        print_distance_table();
 
         // Sleep for 5 seconds
         sleep(HELLO_INTERVAL);
@@ -577,7 +591,8 @@ void *message_receiver_thread(void *arg) {
                 memcpy(&sequence, seq_ptr, sizeof(uint16_t));
                 sequence = ntohs(sequence);
 
-                printf("[RECV] HELLO from %s (seq: %u)\n", sender_ip, sequence);
+                // Uncomment for verbose debugging:
+                // printf("[RECV] HELLO from %s (seq: %u)\n", sender_ip, sequence);
                 update_neighbor(sender_ip, sequence);
             } else {
                 printf("[WARN] Invalid HELLO message - insufficient data for sequence number (got %d bytes, need %zu)\n",
@@ -625,6 +640,17 @@ int create_broadcast_socket() {
         close(sock);
         return -1;
     }
+
+    // Allow port reuse (needed for multiple instances on same machine)
+#ifdef SO_REUSEPORT
+    int reuse_port = 1;
+    if (setsockopt(sock, SOL_SOCKET, SO_REUSEPORT,
+                   (void *)&reuse_port, sizeof(reuse_port)) < 0) {
+        perror("setsockopt(SO_REUSEPORT) failed");
+        close(sock);
+        return -1;
+    }
+#endif
 
     // Bind to port
     memset(&local_addr, 0, sizeof(local_addr));
