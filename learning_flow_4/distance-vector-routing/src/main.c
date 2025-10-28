@@ -380,6 +380,7 @@ void processDistanceVector(char* dv) {
     char *ptr = first_colon + 4;  // Skip ":DV:"
     int changes = 0;
 
+
     while (*ptr != '\0') {
         if (*ptr == '(') {
             char dest[INET_ADDRSTRLEN];
